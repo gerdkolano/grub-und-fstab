@@ -69,6 +69,7 @@ sub next_nummer {
   close AUS;
 }
 
+my $lfd = 0;
 sub eine_menuentry {
   my $uuid     = shift;
   my $set_root = shift;
@@ -94,10 +95,12 @@ sub eine_menuentry {
   my ($short_kernel) = $vmlinuz =~ /[^-]*-(.*)/;
   
   my $x1x = `/home/hanno/erprobe/grub-und-fstab/root-device.pl`;
-  my $kennung = "$x1x $short_uuid $device $rootv $set_root $short_kernel";
+  my $marke = "root=($device=$rootv=$short_uuid=$set_root)";
+  my $kennung = "Erzeuger=($x1x) $marke $short_kernel";
   my $erg = "";
-     printf("%s\n", "menuentry \"$nr $kennung\"");
-     $erg .=        "menuentry \"$nr $kennung\" {\n";
+  my $titel = "menuentry \"" . $lfd++. " $nr $kennung\"";
+     printf("%s\n", "$titel");
+     $erg .=        "$titel {\n";
      $erg .= "    recordfail\n";
      $erg .= "    load_video\n";
      $erg .= "    gfxmode \$linux_gfx_mode\n";
@@ -107,7 +110,7 @@ sub eine_menuentry {
      $erg .= "    set root='($set_root)'\n";
      $erg .= "    search --no-floppy --fs-uuid --set=root         $uuid\n";
      $erg .= "    echo \"root=\$root  $uuid\"\n";
-     $erg .= "    linux $vmlinuz root=UUID=$uuid $rotate ro noquiet nosplash hanno-$nr-$device-$rootv-$set_root-$datum\n";
+     $erg .= "    linux $vmlinuz root=UUID=$uuid $rotate ro noquiet nosplash hanno-$nr-$marke-$datum\n";
      $erg .= "initrd $initrd\n";
      $erg .= "}\n";
   return $erg;
@@ -197,7 +200,7 @@ sub erzeuge_menuentries {
   use Switch;
   switch ($host) {
     case "zoe"  { $default   = "3";}
-    case "fadi" { $default   = "1";}
+    case "fadi" { $default   = "6";}
   }
 
   my $erg = "";
@@ -249,8 +252,8 @@ print "chmod -v a-x /etc/grub.d/0[78]-*\n";
 print "mv $pfad /etc/grub.d\n";
 print q{dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' # | xargs sudo apt-get -y purge};
 print "\n";
-print q{perl -pne 's#x1x#'"`/home/hanno/erprobe/grub-und-fstab/root-device.pl`"'#' /boot/grub/grub.cfg > /tmp/1 && mv /tmp/1 /boot/grub/grub.cfg};
-print "\n";
+#print q{perl -pne 's#x1x#'"`/home/hanno/erprobe/grub-und-fstab/root-device.pl`"'#' /boot/grub/grub.cfg > /tmp/1 && mv /tmp/1 /boot/grub/grub.cfg};
+#print "\n";
 
 print "update-grub # Das ruft grub-mkconfig -o /boot/grub/grub.cfg\n";
 print "\n";
