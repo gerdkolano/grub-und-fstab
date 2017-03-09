@@ -1,0 +1,6 @@
+
+cp -auv /etc/grub.d/08-hanno ./08-hanno-alt
+/home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /etc/grub.d/08-hanno
+update-grub2 
+grub-install /dev/sda
+
