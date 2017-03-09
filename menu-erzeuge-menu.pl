@@ -1,12 +1,12 @@
 #!/usr/bin/perl
-# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /tmp/08-hanno-fadi
-# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /tmp/07-hanno-zoe
+# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl
+
 use warnings;
 use strict;
 
 sub fstab {
   my ($blkid, $BLK);
-  $blkid = "blkid";
+  $blkid = "blkid -s LABEL -s UUID -s TYPE";
   
   open $BLK, "$blkid |" or die "Kann $blkid nicht lesen.";
   
@@ -96,7 +96,7 @@ sub eine_menuentry {
   
   my $x1x = `/home/hanno/erprobe/grub-und-fstab/root-device.pl`;
   my $marke = "root=($device=$rootv=$short_uuid=$set_root)";
-  my $kennung = "Erzeuger=($x1x) $marke $short_kernel";
+  my $kennung = "$marke $short_kernel Erzeuger=($x1x) ";
   my $erg = "";
   my $titel = "menuentry \"" . $lfd++. " $nr $kennung\"";
      printf("%s\n", "$titel");
@@ -109,6 +109,7 @@ sub eine_menuentry {
      $erg .= "    insmod part_gpt\n";
      $erg .= "    set root='($set_root)'\n";
      $erg .= "    search --no-floppy --fs-uuid --set=root         $uuid\n";
+     $erg .= "    echo \"root=\$root  $uuid\"\n";
      $erg .= "    echo \"root=\$root  $uuid\"\n";
      $erg .= "    linux $vmlinuz root=UUID=$uuid $rotate ro noquiet nosplash hanno-$nr-$marke-$datum\n";
      $erg .= "initrd $initrd\n";
@@ -207,7 +208,7 @@ sub erzeuge_menuentries {
   $erg .= "#! /bin/sh -e\n";
   $erg .= "echo \"Hannos Boot-Menüeintrag $dateiname\" >&2\n";
   $erg .= "cat << EOF\n";
-  $erg .= "set default=\"$default\"\n";
+  $erg .= "# set default=\"$default\"\n";
   $erg .= "### hanno ### Die Nummerierung beginnt bei 0\n";
   $erg .= das_menu( $datum, $host);
   $erg .= "EOF\n";
@@ -236,10 +237,11 @@ fstab();
 
 my $host = hostname();
 my ($AUS, $dateiname);
-$dateiname = "08-hanno-$host-2016-07-31";
+
+my $SEQUENZ=15;
 use Time::Piece;
 my $datum = localtime->strftime("%Y-%m-%d-%H.%M.%S");
-$dateiname = "08-hanno-$host-$datum";
+$dateiname = "$SEQUENZ-hanno-$host-$datum";
 
 my $pfad = "/tmp/$dateiname";
 open $AUS, "> $pfad";
@@ -248,7 +250,7 @@ close $AUS;
 chmod 0755, $pfad;
 
 print "Noch zu erledigen:\n";
-print "chmod -v a-x /etc/grub.d/0[78]-*\n";
+print "chmod -v a-x /etc/grub.d/$SEQUENZ-*\n";
 print "mv $pfad /etc/grub.d\n";
 print q{dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' # | xargs sudo apt-get -y purge};
 print "\n";
