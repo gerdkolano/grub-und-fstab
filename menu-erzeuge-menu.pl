@@ -10,13 +10,16 @@ sub fstab {
   
   open $BLK, "$blkid |" or die "Kann $blkid nicht lesen.";
   
-  my ($label, $uuid, $type);
+  my ($label, $uuid, $type, $device);
     
   while (<$BLK>) {
     #print;
     
     $label="";
-    while(m#(UUID=)"([^"]*)#g) {
+    while(m#(^/dev/[^:]*)#g) {
+      $device="$1";
+    }
+    while(m# (UUID=)"([^"]*)#g) {
       $uuid="$1$2";
     }
     while(m#(LABEL=)"([^"]*)#g) {
@@ -25,9 +28,9 @@ sub fstab {
     while(m#(TYPE=)"([^"]*)#g) {
       $type="$2";
     }
-    $label=($label eq ""?"      ":"/$label");
-    print "$uuid $label ext4 rw,nosuid,nodev,uhelper=devkit 1 2\n" if $type eq "ext4";
-    print "$uuid none   swap sw                             0 0\n" if $type eq "swap";
+    $label=($label eq "" ? "/" . substr( $uuid, 5, 4) . " " : "/$label");
+    print "$uuid $label ext4 rw,nosuid,nodev,uhelper=devkit 1 2 # $device\n" if $type eq "ext4";
+    print "$uuid none   swap sw                             0 0 # $device\n" if $type eq "swap";
   }
 }
 
@@ -47,21 +50,54 @@ sub grub_probe {
   }
 }
 
-sub menuentry {
+sub next_nummer {
+  my $mummer;
+  my $nummerspeicher = "/home/hanno/erprobe/grub-und-fstab/nummer.txt";
+  
+  open EIN, "< $nummerspeicher";
+  while (<EIN>) {
+    chop;
+    $mummer=$_;
+  };
+  close EIN;
+  
+  open AUS, "> $nummerspeicher";
+  # print $mummer."\n";
+  printf  AUS "%06d\n", ++$mummer;
+  return $mummer;
+  
+  close AUS;
+}
+
+sub eine_menuentry {
   my $uuid     = shift;
   my $set_root = shift;
   my $device   = shift;
   my $rootv    = shift;
   my $vmlinuz  = shift;
   my $initrd   = shift;
+  my $datum    = shift;
+  my $host     = shift;
+
+  my $nr = sprintf "ME%06d", next_nummer();
+  # printf "\$nr=%s\n", $nr;
+
+
+  my $rotate   = "fbcon=rotate:3";
+  use Switch;
+  switch ($host) {
+    case "zoe"  { $rotate   = "fbcon=rotate:3";}
+    case "fadi" { $rotate   = "";}
+  }
 
   my ($short_uuid) = $uuid =~ /(^....)/;
   my ($short_kernel) = $vmlinuz =~ /[^-]*-(.*)/;
   
-  # printf "M040 %s %s %s %s %s %s\n", $short_uuid, $device, $rootv, $set_root, $short_kernel, $vmlinuz ;
-
+  my $x1x = `/home/hanno/erprobe/grub-und-fstab/root-device.pl`;
+  my $kennung = "$x1x $short_uuid $device $rootv $set_root $short_kernel";
   my $erg = "";
-     $erg .= "menuentry \"$short_uuid $device $rootv $set_root $short_kernel\" {\n";
+     printf("%s\n", "menuentry \"$nr $kennung\"");
+     $erg .=        "menuentry \"$nr $kennung\" {\n";
      $erg .= "    recordfail\n";
      $erg .= "    load_video\n";
      $erg .= "    gfxmode \$linux_gfx_mode\n";
@@ -70,15 +106,18 @@ sub menuentry {
      $erg .= "    insmod part_gpt\n";
      $erg .= "    set root='($set_root)'\n";
      $erg .= "    search --no-floppy --fs-uuid --set=root         $uuid\n";
-     $erg .= "    linux $vmlinuz root=UUID=$uuid ro noquiet nosplash\n";
+     $erg .= "    echo \"root=\$root  $uuid\"\n";
+     $erg .= "    linux $vmlinuz root=UUID=$uuid $rotate ro noquiet nosplash hanno-$nr-$device-$rootv-$set_root-$datum\n";
      $erg .= "initrd $initrd\n";
      $erg .= "}\n";
   return $erg;
 }
 
-sub vmlinuz {
-  my ($root, $directory, $DIR);
+sub function_vmlinuz {
+  my ($root, $datum, $directory, $DIR);
   $root = shift;
+  $datum = shift;
+  my $host = shift;
   # system "ls " . sprintf( "/%s/boot/\n", $root);
   my (@liste_vmlinuz, @liste_initrd);
   $directory = sprintf "/%s/boot", $root;
@@ -95,18 +134,26 @@ sub vmlinuz {
   }
   @liste_vmlinuz = sort {$b cmp $a} @liste_vmlinuz; # reverse {$a cmp $b{ # numerically {$a <=> $b{
   @liste_initrd = sort {$b cmp $a} @liste_initrd; # reverse {$a cmp $b{ # numerically {$a <=> $b{
-  my ($rootv, $vmlinuz) = $liste_vmlinuz[0] =~ m#(/[^/]*)(.*)#g;
-  my ($rootr, $initrd ) = $liste_initrd [0] =~ m#(/[^/]*)(.*)#g;
-  # printf "M030 %s %s %s %s\n", $rootv, $rootr, $vmlinuz, $initrd;
-  
-  my $erg = menuentry(
-    grub_probe( "fs_uuid", $rootv),
-    grub_probe( "compatibility_hint", $rootv),
-    grub_probe( "device", $rootv),
-    $rootv,
-    $vmlinuz,
-    $initrd
-  );
+  # printf( "%s\n", join(", ", @liste_vmlinuz));
+
+  my $erg = "";
+
+  for (my $i=0; $i<@liste_vmlinuz; $i++) {
+    my ($rootv, $vmlinuz) = $liste_vmlinuz[$i] =~ m#(/[^/]*)(.*)#g;
+    my ($rootr, $initrd ) = $liste_initrd [$i] =~ m#(/[^/]*)(.*)#g;
+    # printf "M030 %s %s %s %s\n", $rootv, $rootr, $vmlinuz, $initrd;
+    
+    $erg .= eine_menuentry(
+      grub_probe( "fs_uuid", $rootv),
+      grub_probe( "compatibility_hint", $rootv),
+      grub_probe( "device", $rootv),
+      $rootv,
+      $vmlinuz,
+      $initrd,
+      $datum,
+      $host
+    );
+  }
   # printf "M050 $erg";
   return "$erg\n";
 
@@ -115,7 +162,10 @@ sub vmlinuz {
 #  }
 }
 
-sub menu {
+sub das_menu {
+  my $datum = shift;
+  my $host = shift;
+
   my $erg = "";
   my ($directory, $DIR);
   $directory = '/';
@@ -131,53 +181,79 @@ sub menu {
   }
   @liste = sort @liste;
   foreach my $file (@liste) {
-    $erg .= vmlinuz( $file);
+    $erg .= function_vmlinuz( $file, $datum, $host);
   }
   return $erg;
 }
 
-# fstab();
-sub rahmen {
-  my $AUS = shift;
+sub erzeuge_menuentries {
+  my $AUS       = shift;
+  my $dateiname = shift;
+  my $datum     = shift;
+  my $host      = shift;
+
+  my $default   = "0";
+  use Sys::Hostname;
+  use Switch;
+  switch ($host) {
+    case "zoe"  { $default   = "3";}
+    case "fadi" { $default   = "1";}
+  }
+
   my $erg = "";
   $erg .= "#! /bin/sh -e\n";
-  $erg .= "echo \"Hannos Boot-Menüeintrag 08-hanno\" >&2\n";
+  $erg .= "echo \"Hannos Boot-Menüeintrag $dateiname\" >&2\n";
   $erg .= "cat << EOF\n";
-  $erg .= "set default=\"0\"\n";
+  $erg .= "set default=\"$default\"\n";
   $erg .= "### hanno ### Die Nummerierung beginnt bei 0\n";
-  $erg .= menu();
+  $erg .= das_menu( $datum, $host);
   $erg .= "EOF\n";
   $erg .= "# $0\n";
 
-  $erg .= "# Vereinfacht : Editiere /etc/grub.d/07-hanno-zoe-2016-06-03 z.B s/-86-/-87-/\n";
-  $erg .= "# update-grub2\n";
-  $erg .= "# init 6\n";
+  $erg .= "# Vereinfacht :\n";
+  $erg .= "# 1) Editiere /etc/grub.d/$dateiname,  z.B s/-86-/-87-/\n";
+  $erg .= "# 2) update-grub # Das ruft grub-mkconfig -o /boot/grub/grub.cfg\n";
+  $erg .= "# 3) init 6\n";
   $erg .= "# \n";
   $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl\n";
-  $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi\n";
-  $erg .= "# chmod a+x                                             /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi\n";
-  $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /etc/grub.d/07-hanno-zoe\n";
-  $erg .= "# chmod a+x                                           > /etc/grub.d/07-hanno-zoe\n";
-  $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe\n";
-  $erg .= "# chmod a+x                                             /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe\n";
-  $erg .= "# root\@zoe:~# cp -auv /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe  /etc/grub.d\n";
-  $erg .= "# root\@fadi~# cp -auv /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi /etc/grub.d\n";
-  $erg .= "# root\@xeo~# update-grub2\n";
-  $erg .= "# root\@fadi~# update-grub2\n";
+  $erg .= "# root\@zoe:~# cp -auv $dateiname /etc/grub.d\n";
+  $erg .= "# root\@fadi:~# cp -auv $dateiname /etc/grub.d\n";
+  $erg .= "# root\@zoe~# update-grub # Das ruft grub-mkconfig -o /boot/grub/grub.cfg\n";
+  $erg .= "# root\@fadi~# update-grub # Das ruft grub-mkconfig -o /boot/grub/grub.cfg\n";
   $erg .= "# \n";
   $erg .= "# \n";
   print $AUS "$erg\n";
 }
 
-my ($AUS, $datei);
-$datei = "08-hanno-fadi-2016-07-31";
-open $AUS, "> /tmp/$datei";
-rahmen($AUS);
-close $AUS;
+if ($> > 0) {
+  print "uid == $> . Nur root kann das.<br />\n";
+  exit 1;
+}
+fstab();
 
-print "mv /tmp/$datei /etc/grub.d\n";
-print "chmod a+x /etc/grub.d/$datei\n";
-print "grub-mkconfig > /roote/boot/grub/grub.cfg\n";
+my $host = hostname();
+my ($AUS, $dateiname);
+$dateiname = "08-hanno-$host-2016-07-31";
+use Time::Piece;
+my $datum = localtime->strftime("%Y-%m-%d-%H.%M.%S");
+$dateiname = "08-hanno-$host-$datum";
+
+my $pfad = "/tmp/$dateiname";
+open $AUS, "> $pfad";
+erzeuge_menuentries( $AUS, $dateiname, $datum, $host);
+close $AUS;
+chmod 0755, $pfad;
+
+print "Noch zu erledigen:\n";
+print "chmod -v a-x /etc/grub.d/0[78]-*\n";
+print "mv $pfad /etc/grub.d\n";
+print q{dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' # | xargs sudo apt-get -y purge};
+print "\n";
+print q{perl -pne 's#x1x#'"`/home/hanno/erprobe/grub-und-fstab/root-device.pl`"'#' /boot/grub/grub.cfg > /tmp/1 && mv /tmp/1 /boot/grub/grub.cfg};
+print "\n";
+
+print "update-grub # Das ruft grub-mkconfig -o /boot/grub/grub.cfg\n";
+print "\n";
 
 exit 0 
 
