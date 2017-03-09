@@ -33,19 +33,20 @@ sub fstab {
 sub vmlinuz {
   my ($directory, $DIR);
   $directory = shift;
-  printf "%s\n", $directory;
+  # printf "%s\n", $directory;
   # system "ls " . sprintf( "/%s/boot/\n", $file);
-  my @liste;
+  my (@liste_vmlinuz, @liste_initrd);
   opendir ($DIR, $directory) or return; #  or die "$directory " . $!;
   while (my $file = readdir($DIR)) {
-      next if ( ! ($file =~ m/^vmlinuz/) );
-      # printf "%s/%s\n", $directory, $file;
-      push @liste, sprintf( "%s/%s", $directory, $file);
-      # vmlinuz( $file);
+    # printf "%s/%s\n", $directory, $file;
+    push @liste_vmlinuz, sprintf( "%s/%s", $directory, $file) if ($file =~ m/^vmlinuz/);
+    push @liste_initrd , sprintf( "%s/%s", $directory, $file) if ($file =~ m/^initrd/ );
   }
-  @liste = sort {$b cmp $a} @liste; # reverse {$a cmp $b{ # numerically {$a <=> $b{
-  printf "%s\n", @liste[0];
-#  foreach my $elem (@liste) {
+  @liste_vmlinuz = sort {$b cmp $a} @liste_vmlinuz; # reverse {$a cmp $b{ # numerically {$a <=> $b{
+  printf "%s\n", $liste_vmlinuz[0];
+  @liste_initrd = sort {$b cmp $a} @liste_initrd; # reverse {$a cmp $b{ # numerically {$a <=> $b{
+  printf "%s\n", $liste_initrd[0];
+#  foreach my $elem (@liste_initrd) {
 #    printf "%s\n", $elem;
 #  }
 }
@@ -56,9 +57,10 @@ sub menu {
   # printf "%s\n", $directory;
   opendir ($DIR, $directory) or die $!;
   while (my $file = readdir($DIR)) {
-      next if ($file =~ m/^\./  or ! ($file =~ m/^root./) );
-      my $zu_suchen = sprintf "/%s/boot", $file;
-      vmlinuz( $zu_suchen);
+    next if ($file =~ m/^\./  or ! ($file =~ m/^root./) );
+    my $zu_suchen = sprintf "/%s/boot", $file;
+    # printf "%s\n", $file;
+    vmlinuz( $zu_suchen);
   }
 }
 
