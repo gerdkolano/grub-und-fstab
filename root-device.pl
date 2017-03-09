@@ -22,7 +22,7 @@ sub root_device {
   return "$mountpoint";
 }
 
-printf "%s\n", root_device();
+printf "%s", root_device();
 
 # /dev/sdc2 on / type ext4 (rw,errors=remount-ro) [rooto]
 # /dev/sdc2 on /rooto type ext4 (rw,nosuid,nodev,uhelper=devkit) [rooto]
