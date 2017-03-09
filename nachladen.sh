@@ -5,8 +5,9 @@ echo "Hannos Nachladen cp -auv /home/hanno/erprobe/grub-und-fstab/nachladen.sh /
 for i in `ls /root?/boot/grub/grub.cfg | cut -f1-2 -d/` ; do
               device=$(grub-probe --target=device             $i);
   compatibility_hint=$(grub-probe --target=compatibility_hint $i);
+             fs_uuid=$(grub-probe --target=fs_uuid            $i);
 cat <<ENDE
-menuentry "Nachladen der grub.cfg von $i=$device=$compatibility_hint" {
+menuentry "Nachladen der grub.cfg von $i=$device=$compatibility_hint=$fs_uuid" {
         insmod ext2
         insmod part_gpt
         configfile ($compatibility_hint)/boot/grub/grub.cfg
