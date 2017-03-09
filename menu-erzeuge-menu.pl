@@ -138,23 +138,46 @@ sub menu {
 
 # fstab();
 sub rahmen {
+  my $AUS = shift;
   my $erg = "";
   $erg .= "#! /bin/sh -e\n";
   $erg .= "echo \"Hannos Boot-Menüeintrag 08-hanno\" >&2\n";
   $erg .= "cat << EOF\n";
+  $erg .= "set default=\"0\"\n";
+  $erg .= "### hanno ### Die Nummerierung beginnt bei 0\n";
   $erg .= menu();
   $erg .= "EOF\n";
   $erg .= "# $0\n";
+
+  $erg .= "# Vereinfacht : Editiere /etc/grub.d/07-hanno-zoe-2016-06-03 z.B s/-86-/-87-/\n";
+  $erg .= "# update-grub2\n";
+  $erg .= "# init 6\n";
+  $erg .= "# \n";
+  $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl\n";
   $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi\n";
+  $erg .= "# chmod a+x                                             /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi\n";
+  $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /etc/grub.d/07-hanno-zoe\n";
+  $erg .= "# chmod a+x                                           > /etc/grub.d/07-hanno-zoe\n";
   $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe\n";
+  $erg .= "# chmod a+x                                             /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe\n";
   $erg .= "# root\@zoe:~# cp -auv /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe  /etc/grub.d\n";
   $erg .= "# root\@fadi~# cp -auv /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi /etc/grub.d\n";
-  $erg .= "# update-grub2\n";
+  $erg .= "# root\@xeo~# update-grub2\n";
+  $erg .= "# root\@fadi~# update-grub2\n";
   $erg .= "# \n";
-  print "$erg\n";
+  $erg .= "# \n";
+  print $AUS "$erg\n";
 }
 
-rahmen();
+my ($AUS, $datei);
+$datei = "08-hanno-fadi-2016-07-31";
+open $AUS, "> /tmp/$datei";
+rahmen($AUS);
+close $AUS;
+
+print "mv /tmp/$datei /etc/grub.d\n";
+print "chmod a+x /etc/grub.d/$datei\n";
+print "grub-mkconfig > /roote/boot/grub/grub.cfg\n";
 
 exit 0 
 
