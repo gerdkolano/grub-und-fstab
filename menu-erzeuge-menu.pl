@@ -254,9 +254,7 @@ print "chmod -v a-x /etc/grub.d/$SEQUENZ-*\n";
 print "mv $pfad /etc/grub.d\n";
 print q{dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' # | xargs sudo apt-get -y purge};
 print "\n";
-#print q{perl -pne 's#x1x#'"`/home/hanno/erprobe/grub-und-fstab/root-device.pl`"'#' /boot/grub/grub.cfg > /tmp/1 && mv /tmp/1 /boot/grub/grub.cfg};
-#print "\n";
-
+print "ls -l --time-style='+%Y-%m-%d-%H-%M-%S' /boot/grub/grub.cfg | perl -ne 'while(m#([^ ]*) /boot/grub/grub.cfg#g){system \"cp -auv /boot/grub/grub.cfg /boot/grub/\$1-grub.cfg\\n\"}'\n";
 print "update-grub # Das ruft grub-mkconfig -o /boot/grub/grub.cfg\n";
 print "\n";
 
