@@ -83,7 +83,7 @@ sub vmlinuz {
   my (@liste_vmlinuz, @liste_initrd);
   $directory = sprintf "/%s/boot", $root;
   # printf "M020 %s\n", $directory;
-  opendir ($DIR, $directory) or return "############## $directory\n"; #  or die "$directory " . $!;
+  opendir ($DIR, $directory) or return ""; #  or die "$directory " . $!;
   while (my $file = readdir($DIR)) {
     # printf "%s/%s\n", $directory, $file;
     #if ($file =~ m/^vmlinuz/) {
@@ -107,7 +107,7 @@ sub vmlinuz {
     $vmlinuz,
     $initrd
   );
-  print "M050 $erg";
+  # printf "M050 $erg";
   return "$erg\n";
 
 #  foreach my $elem (@liste_initrd) {
@@ -120,12 +120,17 @@ sub menu {
   my ($directory, $DIR);
   $directory = '/';
   # printf "%s\n", $directory;
+  my @liste;
   opendir ($DIR, $directory) or die $!;
   while (my $file = readdir($DIR)) {
     next if ($file =~ m/^\./  or ! ($file =~ m/^root./) );
     #my $zu_suchen = sprintf "/%s/boot", $file;
     # printf "M010 %s\n", $file;
     # vmlinuz( $zu_suchen);
+    push( @liste, $file);
+  }
+  @liste = sort @liste;
+  foreach my $file (@liste) {
     $erg .= vmlinuz( $file);
   }
   return $erg;
@@ -139,6 +144,13 @@ sub rahmen {
   $erg .= "cat << EOF\n";
   $erg .= menu();
   $erg .= "EOF\n";
+  $erg .= "# $0\n";
+  $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi\n";
+  $erg .= "# /home/hanno/erprobe/grub-und-fstab/erzeuge-menu.pl  > /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe\n";
+  $erg .= "# root\@zoe:~# cp -auv /home/hanno/erprobe/grub-und-fstab/07-hanno-zoe  /etc/grub.d\n";
+  $erg .= "# root\@fadi~# cp -auv /home/hanno/erprobe/grub-und-fstab/08-hanno-fadi /etc/grub.d\n";
+  $erg .= "# update-grub2\n";
+  $erg .= "# \n";
   print "$erg\n";
 }
 
