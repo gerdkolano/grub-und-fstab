@@ -69,7 +69,7 @@ sub next_nummer {
   close AUS;
 }
 
-my $lfd = 0;
+my $lfd = 2;
 sub eine_menuentry {
   my $uuid     = shift;
   my $set_root = shift;
@@ -249,6 +249,8 @@ erzeuge_menuentries( $AUS, $dateiname, $datum, $host);
 close $AUS;
 chmod 0755, $pfad;
 
+print "\n";
+print "vim /etc/default/grub # und dort GRUB_DEFAULT=GEWÜNSCHTE menuentry\n";
 print "Noch zu erledigen:\n";
 print "chmod -v a-x /etc/grub.d/$SEQUENZ-*\n";
 print "mv $pfad /etc/grub.d\n";
