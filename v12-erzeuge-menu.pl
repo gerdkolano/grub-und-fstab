@@ -6,19 +6,19 @@ use warnings;
 use strict;
 use feature 'state';
 
-my $wurzel = ""; # "/data6";
-$wurzel .= "/home/hanno/erprobe/grub-und-fstab";
+my $wurzel = "/home/hanno/erprobe/grub-und-fstab";
+$wurzel = "/data6/home/hanno/erprobe/grub-und-fstab";
 
 sub hersteller {
-  my $arg = shift;    # /dev/sda, /dev/sdb, /dev/sdc, ...
+  my $arg = shift;
   my ($disk_by_id, $ZEILE);
-  $disk_by_id = "ls -l /dev/disk/by-id/???-*";
+  $disk_by_id = "ls -l /dev/disk/by-id/ata-*";
 
   open $ZEILE, "$disk_by_id |" or die "Kann $disk_by_id nicht lesen.";
 
   while (<$ZEILE>) {
     # print;
-    while(m#/dev/disk/by-id/(?:ata|usb)-([^ ]*) -> ../../(sd.)$#g) {
+    while(m#/dev/disk/by-id/ata-([^ ]*) -> ../../(sd.)$#g) {
       my $oem = $1;
       my $dev = $2;
       if ($arg =~ /$dev/) { # #/dev/sdd# =~ #sdd#
@@ -35,12 +35,10 @@ sub fstab {
   open $BLK, "$blkid |" or die "Kann $blkid nicht lesen.";
   
   my ($label, $uuid, $type, $device);
-    $label="";
     
   while (<$BLK>) {
     #print;
     
-    next if (m#(TYPE="squashfs")#g);
     $label="";
     while(m#(^/dev/[^:]*)#g) {
       $device="$1";
@@ -54,7 +52,6 @@ sub fstab {
     while(m#(TYPE=)"([^"]*)#g) {
       $type="$2";
     }
-    next if !(defined $uuid); 
     $label=($label eq "" ? "/" . substr( $uuid, 5, 4) . " " : "/$label");
     print "$uuid $label ext4 rw,nosuid,nodev,uhelper=devkit 1 2 # $device\n" if $type eq "ext4";
     print "$uuid none   swap sw                             0 0 # $device\n" if $type eq "swap";
@@ -81,7 +78,7 @@ sub alt_nummer {
   my $MUMMER;
   my $nummerspeicher = "$wurzel/nummer.txt";
   
-  open EIN, "< $nummerspeicher" or die "Kann nummerspeicher $nummerspeicher nicht lesen.";
+  open EIN, "< $nummerspeicher";
   while (<EIN>) {
     chop;
     $MUMMER=$_;
@@ -97,7 +94,7 @@ sub rette_nummer {
   my $nummerspeicher = "$wurzel/nummer.txt";
   
   open AUS, "> $nummerspeicher";
-  printf "M020 Rette die laufende Nummer %s in $nummerspeicher.\n", $MUMMER;
+  printf "M020 Rette %s\n", $MUMMER;
   printf  AUS "%06d\n", $MUMMER;
   close AUS;
   return $MUMMER;
@@ -131,7 +128,7 @@ sub eine_menuentry {
   my $initrd   = shift;  # /boot/initrd.img-4.4.0-122-generic, ..-
   my $datum    = shift;  # YYYY-mm-dd-HH-MM-SS 2018-05-12-14.06.43
   my $host     = shift;  # fadi, zoe
-  my $hersteller = hersteller( $device); # KINGSTON..., USB_DISK...
+  my $hersteller = hersteller( $device);
   my $lsb_release = "";
 # my $lsb_release = `/usr/bin/lsb_release -rs`;
 #    $lsb_release =~ s/\n//;
@@ -143,19 +140,16 @@ sub eine_menuentry {
   my $rotate   = "fbcon=rotate:3";
   use Switch;
   switch ($host) {
-    case "zoe"    { $rotate = "fbcon=rotate:3";}
-    case "fadi"   { $rotate = "";}
-    case "john"   { $rotate = "";}
-    case "johnny" { $rotate = "";}
+    case "zoe"  { $rotate   = "fbcon=rotate:3";}
+    case "fadi" { $rotate   = "";}
   }
 
   my ($short_uuid) = $uuid =~ /(^....)/;
   my ($short_kernel) = $vmlinuz =~ /[^-]*-(.*)/;
   
-  my $dieses_device = `$wurzel/root-device.pl`;
+  my $x1x = `$wurzel/root-device.pl`;
   my $marke = "root=($device=$rootv=$short_uuid=$set_root)";
-  my $kennung = "$marke $lsb_release$short_kernel $hersteller Erzeuger=($dieses_device) ";
-  $dieses_device =~ s/ /-/g;
+  my $kennung = "$marke $lsb_release$short_kernel $hersteller Erzeuger=($x1x) ";
   my $erg = "";
   my $titel = "menuentry \"" . $lfd++. " $nr $kennung\"";
      printf("%s\n", "$titel");
@@ -166,18 +160,11 @@ sub eine_menuentry {
      $erg .= "    insmod gzio\n";
      $erg .= "    insmod ext2\n";
      $erg .= "    insmod part_gpt\n";
-     $erg .= "    insmod part_msdos\n";
      $erg .= "    set root='($set_root)'\n";
-     $erg .= "    save_env \\\$root\n";
-     $erg .= "    set nr_marke_datum='$nr.$marke.$hersteller.$datum'\n";
      $erg .= "    search --no-floppy --fs-uuid --set=root         $uuid\n";
-     $erg .= "    echo \"root=\\\$root  $uuid\"\n";
-     $erg .= "    echo \"root=\\\$root  $uuid\"\n";
-     $erg .= "    echo \"nr_marke_datum=\\\$nr_marke_datum  $nr.$marke.$datum\"\n";
-     $erg .= "    echo \"nr_marke_datum=\\\$nr_marke_datum  $nr.$marke.$datum\"\n";
-     $erg .= "    save_env \\\$nr_marke_datum\n";
-     $erg .= "    save_env \\\$root\n";
-     $erg .= "    linux $vmlinuz root=UUID=$uuid $rotate ro noquiet nosplash hanno-$nr-$marke-$dieses_device-$datum hanno-\\\$nr_marke_datum\n";
+     $erg .= "    echo \"root=\$root  $uuid\"\n";
+     $erg .= "    echo \"root=\$root  $uuid\"\n";
+     $erg .= "    linux $vmlinuz root=UUID=$uuid $rotate ro noquiet nosplash hanno-$nr-$marke-$datum\n";
      $erg .= "initrd $initrd\n";
      $erg .= "}\n";
   return $erg;
@@ -193,7 +180,7 @@ sub function_vmlinuz {
   $directory = sprintf "/%s/boot", $root;
   # printf "M020 %s\n", $directory;
   opendir ($DIR, $directory) or return ""; #  or die "$directory " . $!;
-  while (my $file = readdir($DIR)) { # über alle kernel
+  while (my $file = readdir($DIR)) {
     # printf "%s/%s\n", $directory, $file;
     #if ($file =~ m/^vmlinuz/) {
     #  # printf "%s\n", $root;
@@ -242,7 +229,7 @@ sub das_menu {
   # printf "%s\n", $directory;
   my @liste;
   opendir ($DIR, $directory) or die $!;
-  while (my $file = readdir($DIR)) { # über alle roota, rootb, ...   
+  while (my $file = readdir($DIR)) {
     next if ($file =~ m/^\./  or ! ($file =~ m/^root./) );
     #my $zu_suchen = sprintf "/%s/boot", $file;
     # printf "M010 %s\n", $file;
@@ -250,9 +237,7 @@ sub das_menu {
     push( @liste, $file);
   }
   @liste = sort @liste;
-  printf "Anzahl der Verzeichnisse /root? : %d\n", scalar @liste;
-  exit 1 if 0 == scalar @liste;
-  foreach my $file (@liste) { # über alle roota, rootb, ...   
+  foreach my $file (@liste) {
     $erg .= function_vmlinuz( $file, $datum, $host);
   }
   return $erg;
@@ -268,10 +253,8 @@ sub erzeuge_menuentries {
   use Sys::Hostname;
   use Switch;
   switch ($host) {
-    case "zoe"    { $default   = "3";}
-    case "fadi"   { $default   = "6";}
-    case "john"   { $default   = "2";}
-    case "johnny" { $default   = "4";}
+    case "zoe"  { $default   = "3";}
+    case "fadi" { $default   = "6";}
   }
 
   my $erg = "";

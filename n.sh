@@ -1,0 +1,1 @@
+for j in s t o p q r a b; do for i in fs_label bios_hints fs_uuid disk drive device compatibility_hint;do e="$e `grub-probe --device-map=/tmp/device.map --target=$i /root$j`" ; done; echo $e; e=""; done
